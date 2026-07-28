@@ -27,6 +27,13 @@ public class ControllersWebSocket {
         Payload payload = new Payload();
         Mensagem mensagen = new Mensagem();
 
+        if (mqttConfig.getMqttClient() == null) {
+            System.out.println("Cliente MQTT é NULL");
+        } else {
+            System.out.println("Cliente: " + mqttConfig.getMqttClient());
+            System.out.println("Conectado: " + mqttConfig.getMqttClient().isConnected());
+        }
+
         if (mqttConfig.getMqttClient() != null && mqttConfig.getMqttClient().isConnected()) {
             // System.out.println("Mensagem Do Site Recebida: " + mensagem + "\n");
             if (!mensagem.getPayload().getTopic().equals("app/status/mqtt")) {

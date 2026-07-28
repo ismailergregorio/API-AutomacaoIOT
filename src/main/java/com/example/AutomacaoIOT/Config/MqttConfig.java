@@ -61,13 +61,16 @@ public class MqttConfig {
             options.setAutomaticReconnect(true);
             options.setCleanSession(true);
 
+            configurarCallback();
+
             mqttClient.connect(options);
 
             subscribe("#");
 
-            System.out.println("MQTT Conectado!");
-
-            configurarCallback();
+            System.out.println("===== MQTT =====");
+            System.out.println("Cliente: " + mqttClient);
+            System.out.println("Conectado: " + mqttClient.isConnected());
+            System.out.println("================");
         } catch (Exception e) {
             System.out.println("Erro ao conectar MQTT");
             e.printStackTrace();
@@ -91,6 +94,13 @@ public class MqttConfig {
     // PUBLISH
     // =========================
     public void publish(String topic, Object payload) {
+
+        System.out.println("========== PUBLISH ==========");
+        System.out.println("Cliente: " + mqttClient);
+        System.out.println("Conectado: " + mqttClient.isConnected());
+        System.out.println("Tópico: " + topic);
+        System.out.println("=============================");
+        
         try {
             ObjectMapper mapper = new ObjectMapper();
             String json = mapper.writeValueAsString(payload);
@@ -114,7 +124,6 @@ public class MqttConfig {
             @Override
             public void connectionLost(Throwable cause) {
                 System.out.println("❌ Conexão perdida: " + cause.getMessage());
-                conectar();
             }
 
             @Override

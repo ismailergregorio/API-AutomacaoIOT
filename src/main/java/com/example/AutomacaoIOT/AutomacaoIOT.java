@@ -32,7 +32,8 @@ public class AutomacaoIOT implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-
+        ModelUser user = repositoryUser.findByEmail("padrao@gmail.com");
+        if(user != null) return;
         try {
 
             ModelUser usuario = ModelUser.builder()
