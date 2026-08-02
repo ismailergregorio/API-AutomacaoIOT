@@ -47,33 +47,43 @@ public class MqttConfig {
 
     private final ServicesMensagem sevicesMensagen;
 
+    private final ObjectMapper mapper = new ObjectMapper();
+
     // =========================
     // CONECTA AUTOMATICAMENTE
     // =========================
     @PostConstruct
     public void conectar() {
         try {
+
             mqttClient = new MqttClient(broker, clientId);
 
             MqttConnectOptions options = new MqttConnectOptions();
             options.setUserName(username);
             options.setPassword(password.toCharArray());
+
             options.setAutomaticReconnect(true);
             options.setCleanSession(true);
+
+            options.setKeepAliveInterval(30);
+            options.setConnectionTimeout(15);
+            options.setMaxInflight(100);
 
             configurarCallback();
 
             mqttClient.connect(options);
 
-            subscribe("#");
+            System.out.println("==================================");
+            System.out.println("MQTT conectado");
+            System.out.println("Broker : " + broker);
+            System.out.println("Client : " + clientId);
+            System.out.println("==================================");
 
-            System.out.println("===== MQTT =====");
-            System.out.println("Cliente: " + mqttClient);
-            System.out.println("Conectado: " + mqttClient.isConnected());
-            System.out.println("================");
         } catch (Exception e) {
+
             System.out.println("Erro ao conectar MQTT");
             e.printStackTrace();
+
         }
     }
 
@@ -95,74 +105,165 @@ public class MqttConfig {
     // =========================
     public void publish(String topic, Object payload) {
 
-        System.out.println("========== PUBLISH ==========");
-        System.out.println("Cliente: " + mqttClient);
-        System.out.println("Conectado: " + mqttClient.isConnected());
-        System.out.println("Tópico: " + topic);
-        System.out.println("=============================");
-        
         try {
-            ObjectMapper mapper = new ObjectMapper();
+
+            if (mqttClient == null) {
+
+                System.out.println("MQTT Client é NULL.");
+                return;
+
+            }
+
+            if (!mqttClient.isConnected()) {
+
+                System.out.println("MQTT desconectado. Não foi possível publicar.");
+
+                return;
+
+            }
+
             String json = mapper.writeValueAsString(payload);
+
             MqttMessage msg = new MqttMessage(json.getBytes());
+
             msg.setQos(qos);
 
             mqttClient.publish(topic, msg);
-            // System.out.println("Mensagem do App para o Mqtt:" + topic + " " + msg);
+
+            System.out.println("==================================");
+            System.out.println("Mensagem publicada");
+            System.out.println("Topico : " + topic);
+            System.out.println("Payload: " + json);
+            System.out.println("==================================");
+
         } catch (Exception e) {
-            System.out.println("Erro publish");
+
+            System.out.println("Erro ao publicar");
+
             e.printStackTrace();
+
         }
+
     }
 
     // =========================
     // CALLBACK
     // =========================
     private void configurarCallback() {
-        mqttClient.setCallback(new MqttCallback() {
+
+        mqttClient.setCallback(new MqttCallbackExtended() {
+
+            @Override
+            public void connectComplete(boolean reconnect, String serverURI) {
+
+                System.out.println("==================================");
+                System.out.println("MQTT conectado");
+                System.out.println("Reconnect : " + reconnect);
+                System.out.println("ServerURI : " + serverURI);
+
+                if (mqttClient == null) {
+                    return;
+                }
+
+                if (!mqttClient.isConnected()) {
+                    System.out.println("Cliente ainda não está conectado.");
+                    return;
+                }
+
+                try {
+
+                    mqttClient.unsubscribe("#"); // opcional
+
+                } catch (Exception ignored) {
+                }
+
+                try {
+
+                    mqttClient.subscribe("#", qos);
+
+                    System.out.println("Subscribe realizado.");
+
+                } catch (Exception e) {
+
+                    e.printStackTrace();
+
+                }
+
+                System.out.println("==================================");
+            }
 
             @Override
             public void connectionLost(Throwable cause) {
-                System.out.println("❌ Conexão perdida: " + cause.getMessage());
+
+                System.out.println("==================================");
+                System.out.println("MQTT CONNECTION LOST");
+
+                if (cause != null) {
+
+                    System.out.println("Classe : " + cause.getClass().getName());
+                    System.out.println("Mensagem: " + cause.getMessage());
+
+                    if (cause instanceof MqttException ex) {
+
+                        System.out.println("ReasonCode: " + ex.getReasonCode());
+
+                    }
+
+                    cause.printStackTrace();
+
+                }
+
+                System.out.println("==================================");
+
             }
 
             @Override
             public void messageArrived(String topic, MqttMessage dados) {
-                // System.out.println("📥 Mensagem recebida MQTT:");
-                System.out.print(topic);
-                System.out.print(dados + "\n\n");
 
                 try {
 
-                    ObjectMapper mapper = new ObjectMapper();
-                    Map<String, Object> dadoEsp = mapper.readValue(dados.toString(), Map.class);
-                    String deviceId;
+                    System.out.println("MQTT <- " + topic);
 
-                    deviceId = topic.split("/")[1];
+                    Map<String, Object> dadoEsp = mapper.readValue(dados.toString(), Map.class);
+
+                    String deviceId = topic.split("/")[1];
 
                     Payload payload = new Payload();
+
                     payload.setDeviceId(deviceId);
                     payload.setTopic(topic);
                     payload.setDados(dadoEsp);
 
-                    Mensagem mesagem = new Mensagem();
-                    mesagem.setDeviceId(deviceId);
-                    mesagem.setPayload(payload);
+                    Mensagem mensagem = new Mensagem();
 
-                    publicarMensag.publicarMensagem(mesagem);
+                    mensagem.setDeviceId(deviceId);
+                    mensagem.setPayload(payload);
 
-                    sevicesMensagen.postMensagem(new DTOPostMensagem(deviceId, payload.getTopic(), payload.getDados()));
+                    publicarMensag.publicarMensagem(mensagem);
+
+                    sevicesMensagen.postMensagem(
+                            new DTOPostMensagem(
+                                    deviceId,
+                                    payload.getTopic(),
+                                    payload.getDados()));
+
                 } catch (Exception e) {
-                    System.out.println("Erro ao processar mensagem MQTT");
+
                     e.printStackTrace();
+
                 }
+
             }
 
             @Override
             public void deliveryComplete(IMqttDeliveryToken token) {
-                // System.out.println("Entrega concluída");
+
+                // opcional
+
             }
+
         });
+
     }
 
     // =========================
@@ -170,14 +271,24 @@ public class MqttConfig {
     // =========================
     @PreDestroy
     public void desconectar() {
+
         try {
+
             if (mqttClient != null && mqttClient.isConnected()) {
+
                 mqttClient.disconnect();
+
+                mqttClient.close();
+
                 System.out.println("MQTT Desconectado");
+
             }
+
         } catch (Exception e) {
-            System.out.println("Erro ao desconectar");
+
             e.printStackTrace();
+
         }
+
     }
 }

@@ -62,14 +62,10 @@ public class SecurityConfiguration {
 
                                 .authorizeHttpRequests(auth -> auth
 
-                                                .requestMatchers(
-                                                                "/auth/**")
-                                                .permitAll()
+                                                .requestMatchers("/auth/**").permitAll()
                                                 .requestMatchers("/ws/**").permitAll()
-                                                .requestMatchers(
-                                                                "/user/**")
-                                                .permitAll()
-
+                                                .requestMatchers("/files/download/device/**").permitAll()
+                                                .requestMatchers("/weather/api-device/**").permitAll()
                                                 .requestMatchers(
                                                                 "/auth/**",
                                                                 "/swagger-ui.html",

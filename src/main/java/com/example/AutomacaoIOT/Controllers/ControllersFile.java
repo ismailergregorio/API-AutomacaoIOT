@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import com.example.AutomacaoIOT.Config.FileStorageConfig;
 import com.example.AutomacaoIOT.DTO.Files.FileDTO;
 import com.example.AutomacaoIOT.Service.FileStorageService;
+import com.example.AutomacaoIOT.Service.ServicesKeyDevice;
 
 import lombok.RequiredArgsConstructor;
 
@@ -26,11 +27,38 @@ public class ControllersFile {
 
   private final FileStorageConfig config;
 
+  private final ServicesKeyDevice servicesKeyDevice;
+
   @GetMapping("/download/{nomeArquivo}")
   public ResponseEntity<Resource> download(@PathVariable String nomeArquivo) {
     try {
       Path caminho = Paths.get(config.getUploadDir()).resolve(nomeArquivo);
       Resource resource = new UrlResource(caminho.toUri());
+
+      if (!resource.exists()) {
+        return ResponseEntity.notFound().build();
+      }
+
+      return ResponseEntity.ok()
+          .header(HttpHeaders.CONTENT_DISPOSITION,
+              "attachment; filename=\"" + resource.getFilename() + "\"")
+          .contentType(MediaType.APPLICATION_OCTET_STREAM)
+          .body(resource);
+
+    } catch (Exception e) {
+      throw new RuntimeException("Erro ao baixar arquivo", e);
+    }
+  }
+
+  @GetMapping("/download/device/{nomeArquivo}/{key}")
+  public ResponseEntity<Resource> downloadDevice(@PathVariable String nomeArquivo, @PathVariable String key) {
+    try {
+      Path caminho = Paths.get(config.getUploadDir()).resolve(nomeArquivo);
+      Resource resource = new UrlResource(caminho.toUri());
+
+      if (!servicesKeyDevice.validateKeyDevice(key)) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+      }
 
       if (!resource.exists()) {
         return ResponseEntity.notFound().build();
